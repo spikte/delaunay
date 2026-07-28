@@ -13,10 +13,11 @@
 #include <unordered_set>
 #include <variant>
 #include <vector>
+#include "../lib/predicates.h"
 
 /* Graph */
 struct Graph {
-    std::vector<std::vector<uint16_t>> adj_list;
+    std::vector<std::vector<uint32_t>> adj_list;
     std::vector<bool> active;
     Graph(int n) {
         adj_list.resize(n);
@@ -25,7 +26,7 @@ struct Graph {
 };
 
 template <std::size_t N>
-using GraphPolygon  = std::array<uint16_t, N>;
+using GraphPolygon  = std::array<uint32_t, N>;
 using GraphEdge     = GraphPolygon<2>;
 using GraphTriangle = GraphPolygon<3>;
 
@@ -37,7 +38,7 @@ void graph_rm_edge(Graph& graph, int node1, int node2);
 bool graph_get_edge(Graph& graph, int node1, int node2);
 std::vector<GraphEdge> graph_get_edges(Graph& graph);
 // Graph Vertex
-uint16_t graph_add_vertex(Graph& graph);
+uint32_t graph_add_vertex(Graph& graph);
 void graph_rm_vertex(Graph& graph, int node);
 // Graph TriangulationNaive (that doesn't require position)
 void graph_triangulate_fan(Graph& graph);
@@ -54,31 +55,24 @@ struct Graph2D : Graph {
 Vector2 graph2D_get_min_bound(Graph2D& graph);
 Vector2 graph2D_get_max_bound(Graph2D& graph);
 Triangle graph2D_get_super_triangle(Graph2D& graph, float epsilon = 10.f);
-// Graph2D vertex
-uint16_t graph2D_add_vertex(Graph2D& graph, Vector2 pos);
-// Graph2D triangulation
-uint32_t hash_two_u16(uint16_t n1, uint16_t n2);
-// Naive
-struct TriangulationNaive {
-    std::vector<GraphTriangle> triangles;
-    // Used to delete the super triangle node at the end
-    GraphTriangle super_triangle;
+float graph2D_get_average_distance(Graph2D& graph);
+struct GridEntry {
+    uint32_t point;
+    uint32_t next;
 };
-void graph2D_triangulate_bowyer_watson_naive_init(Graph2D& graph, TriangulationNaive& triangulation);
-void graph2D_triangulate_bowyer_watson_naive_finalize(Graph2D& graph, TriangulationNaive& triangulation);
-void graph2D_triangulate_bowyer_watson_naive_it(Graph2D& graph, TriangulationNaive& triangulation, uint16_t node);
-void graph2D_triangulate_bowyer_watson_naive(Graph2D& graph);
-
-// -- Optimized --
+std::vector<uint32_t> graph2D_sort_grid_indices(Graph2D& graph, Vector2 cell_dims);
+// Graph2D vertex
+uint32_t graph2D_add_vertex(Graph2D& graph, Vector2 pos);
+// Graph2D triangulation
 struct GraphTriangulation {
     std::vector<GraphTriangle> triangles;
-    //std::unordered_map<uint32_t, std::array<uint16_t, 2>> edge_map;
+    //std::unordered_map<uint32_t, std::array<uint32_t, 2>> edge_map;
     std::vector<bool> active;
-    std::vector<uint16_t> freeTriangle;
+    std::vector<uint32_t> freeTriangle;
 };
-uint16_t graphtrig_add_vertex(GraphTriangulation& triangulation, GraphTriangle triangle);
-void graphtrig_rm_vertex(GraphTriangulation& triangulation, uint16_t triangle_id);
-std::array<uint16_t, 3> graphtrig_get_neighbors(GraphTriangulation& triangulation, uint16_t triangle);
+uint32_t graphtrig_add_vertex(GraphTriangulation& triangulation, GraphTriangle triangle);
+void graphtrig_rm_vertex(GraphTriangulation& triangulation, uint32_t triangle_id);
+std::array<uint32_t, 3> graphtrig_get_neighbors(GraphTriangulation& triangulation, uint32_t triangle);
 enum class NodeProcessState {
     INIT,
     WALK_TO_CONTAINING,
@@ -90,19 +84,19 @@ enum class NodeProcessState {
 
 struct StateInit {};
 struct StateWalkToContaining {
-    uint16_t walk_current_triangle_id = UINT16_MAX;
+    uint32_t walk_current_triangle_id = UINT32_MAX;
 };
 struct BoundaryEdge {
-    uint16_t a;
-    uint16_t b;
-    uint16_t triangle_outside;
+    uint32_t a;
+    uint32_t b;
+    uint32_t triangle_outside;
 };
 struct StateFindBadTriangles {
-    uint16_t bad_current_triangle_id = UINT16_MAX;
+    uint32_t bad_current_triangle_id = UINT32_MAX;
     Circle bad_current_triangle_circle{};
-    std::queue<uint16_t> to_visit;
+    std::queue<uint32_t> to_visit;
     std::vector<bool> visited;
-    std::vector<uint16_t> bad_triangles;
+    std::vector<uint32_t> bad_triangles;
     std::vector<bool> bad_triangles_map; // O(1) access to if a triangles is visited
     std::vector<BoundaryEdge> boundary_edges;
 };
@@ -112,31 +106,31 @@ struct State {
 };
 struct TrigTriangle {
     GraphTriangle triangle;
-    std::array<uint16_t, 3> neighbors;
+    std::array<uint32_t, 3> neighbors;
     Circle circle;
 };
-int trigtriangle_get_edge_index(const TrigTriangle& trig_triangle, uint16_t node1, uint16_t node2);
+int trigtriangle_get_edge_index(const TrigTriangle& trig_triangle, uint32_t node1, uint32_t node2);
 struct Triangulation {
+    std::vector<uint32_t> process_order;
+    size_t process_index = 0;
+    uint32_t current_node = UINT32_MAX;
+    Vector2 current_point{};
     SlotArray triangles;
     GraphTriangle super_triangle{};
-    Vector2 current_point{};            // point currently being inserted
-    uint16_t current_node = UINT16_MAX; // node currently being inserted
-    size_t last_inserted  = UINT16_MAX;
+    uint32_t last_inserted  = UINT32_MAX;
     State state;
 };
 
 // WALK_TO_CONTAINING
 void graph2D_triangulate_walk_state_init(Triangulation& triangulation);
-uint16_t graph2D_triangulate_walk_state_it(Graph2D& graph, Triangulation& triangulation, StateWalkToContaining& state);
-uint16_t graph2D_triangulate_walk_state_run(Graph2D& graph, Triangulation& triangulation, StateWalkToContaining& state);
+uint32_t graph2D_triangulate_walk_state_it(Graph2D& graph, Triangulation& triangulation, StateWalkToContaining& state);
 // FIND_BAD_TRIANGLES
-void graph2D_triangulate_find_bad_state_init(Triangulation& triangulation, StateFindBadTriangles& state, uint16_t start_triangle_id);
+void graph2D_triangulate_find_bad_state_init(Triangulation& triangulation, StateFindBadTriangles& state, uint32_t start_triangle_id);
 void graph2D_triangulate_find_bad_state_it(Graph2D& graph, Triangulation& triangulation, StateFindBadTriangles& state);
-void graph2D_triangulate_find_bad_state_run(Graph2D& graph, Triangulation& triangulation, StateFindBadTriangles& state);
 
 void graph2D_triangulate_bowyer_watson_init(Graph2D& graph, Triangulation& triangulation);
 void graph2D_triangulate_bowyer_watson_finalize(Graph2D& graph, Triangulation& triangulation);
-bool graph2D_triangulate_bowyer_watson_it(Graph2D& graph, Triangulation& triangulation, uint16_t node);
+bool graph2D_triangulate_bowyer_watson_it(Graph2D& graph, Triangulation& triangulation);
 void graph2D_triangulate_bowyer_watson(Graph2D& graph);
 
 void graph2D_triangulate_find_bad_state_draw(Triangulation& triangulation, StateFindBadTriangles& state);

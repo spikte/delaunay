@@ -1,21 +1,26 @@
 TARGET=delaunay
-SRCS=src/slot_array.cpp src/geometry.cpp src/graph.cpp src/main.cpp
-OBJS=$(patsubst src/%.cpp,obj/%.o,$(SRCS))
+SRCS=lib/predicates.c src/slot_array.cpp src/geometry.cpp src/graph.cpp src/main.cpp
+OBJS_TMP=$(SRCS:.cpp=.o)
+OBJS=$(addprefix obj/, $(notdir $(OBJS_TMP:.c=.o)))
+CXXFLAGS=-O3 -Wall -I./include -I./lib
+CFLAGS=-O3 -Wall -I./include -I./lib
 LINK=-lraylib
-
+VPATH=src:lib
 
 $(TARGET): build $(OBJS)
 	g++ $(OBJS) -o ./bin/$(TARGET) $(LINK)
 
-$(OBJS): obj/%.o: src/%.cpp
-	g++ -c $< -o $@ $(FLAGS)
+obj/%.o: %.cpp
+	g++ $(CXXFLAGS) -c $< -o $@
+
+obj/%.o: %.c
+	gcc $(CFLAGS) -c $< -o $@
 
 debug:
-	g++ $(SRCS) -g -o ./bin/debug $(LINK)
+	g++ $(CXXFLAGS) -g $(SRCS) -o ./bin/debug $(LINK)
 
 build:
-	mkdir -p bin
-	mkdir -p obj
+	mkdir -p bin obj
 
 clean:
 	rm -vf ./bin/*

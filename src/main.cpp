@@ -1,10 +1,13 @@
 #include "../include/graph.hpp"
 #include <cstdio>
+#include <random>
 #include <raylib.h>
 #include <raymath.h>
 #define RAYGUI_IMPLEMENTATION
 #include "../lib/raygui.h"
+#include <chrono>
 #include <cmath>
+#include <malloc.h>
 #include <vector>
 
 const Color color_background            = GetColor(0xF7F4EEFF); // warm paper
@@ -23,8 +26,8 @@ const Color color_panel_border          = GetColor(0xE4DFD3FF);
 const Color color_text_primary          = GetColor(0x2B2E3AFF);
 const Color color_text_muted            = GetColor(0x8A93A8FF);
 
-constexpr int minNodes = 3;
-constexpr int maxNodes = 20000;
+constexpr int minNodes = 0;
+constexpr int maxNodes = 100000;
 int nNodes             = 1000;
 
 constexpr float minSpeed = 0;       // 1 step per second
@@ -40,17 +43,31 @@ struct SceneState {
 
     SceneState() : graph(0) {};
 };
-static float random_float(float min, float max) {
-    return min + (max - min) * ((float) rand() / (float) RAND_MAX);
-}
 static void generate_points(SceneState& state, int count) {
-    state = SceneState();
+    int old_size = (int) state.graph.adj_list.size();
 
-    for (int i = 0; i < count; ++i) {
-        graph2D_add_vertex(
-            state.graph,
-            {random_float(0, (float) screen_width),
-             random_float(0, (float) screen_height)});
+    if (count < old_size) {
+        for (int i = count; i < old_size; i++) {
+            state.graph.adj_list[i].clear();
+            state.graph.active[i] = false;
+        }
+    } else if (count > old_size) {
+        state.graph.adj_list.resize(count);
+        state.graph.active.resize(count, true);
+        state.graph.positions.resize(count);
+    }
+
+    for (int i = 0; i < count; i++) {
+        state.graph.active[i] = true;
+        state.graph.adj_list[i].clear();
+    }
+    state.graph.positions.resize(count);
+
+    static std::mt19937 rng(std::random_device{}());
+    static std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
+    for (int i = 0; i < count; i++) {
+        state.graph.positions[i].x = dist01(rng) * screen_width;
+        state.graph.positions[i].y = dist01(rng) * screen_height;
     }
 }
 
@@ -123,19 +140,19 @@ void draw_state_find_bad_triangles(SceneState& state) {
     auto& bad_state = std::get<StateFindBadTriangles>(state.triangulation.state.data);
 
     // Visited triangles
-    for (uint16_t i = 0; i < state.triangulation.triangles.dataLen; i++) {
+    for (uint32_t i = 0; i < state.triangulation.triangles.dataLen; i++) {
         if (!state.triangulation.triangles.active[i] || !bad_state.visited[i])
             continue;
         TrigTriangle* trig_triangle = (TrigTriangle*) SlotArrayGet(&state.triangulation.triangles, i);
         draw_filled_triangle(state.graph, trig_triangle->triangle, color_bad_visited);
     }
     // Bad triangles
-    for (uint16_t triangle_id : bad_state.bad_triangles) {
+    for (uint32_t triangle_id : bad_state.bad_triangles) {
         TrigTriangle* trig_triangle = (TrigTriangle*) SlotArrayGet(&state.triangulation.triangles, triangle_id);
         draw_filled_triangle(state.graph, trig_triangle->triangle, color_bad_triangles);
     }
 
-    if (bad_state.bad_current_triangle_id == UINT16_MAX) {
+    if (bad_state.bad_current_triangle_id == UINT32_MAX) {
         draw_current_point(state.triangulation.current_point);
         return;
     }
@@ -293,12 +310,13 @@ void draw(SceneState& state, bool it = false, bool init = false) {
             lineWidth,
             color_mesh_edge);
     }
-    for (auto const& point : state.graph.positions) {
-        float pointRadius = 4.0f / camera.zoom;
-        pointRadius       = std::max(pointRadius, 1.0f); // optional minimum
-
-        DrawCircleV(point, pointRadius, WHITE);
-        DrawCircleLinesV(point, pointRadius, color_mesh_edge);
+    float pointRadius = 2.0f / camera.zoom;
+    if (pointRadius >= 1.0f) {
+        for (auto const& point : state.graph.positions)
+            DrawCircleV(point, pointRadius, BLACK);
+    } else {
+        for (auto const& point : state.graph.positions)
+            DrawPixelV(point, color_mesh_edge);
     }
 }
 
@@ -315,9 +333,8 @@ static void step_bowyer_watson(SceneState& state, bool* init, bool* finished, si
     size_t size;
     size = state.graph.adj_list.size();
     // Process current vertex
-    if (graph2D_triangulate_bowyer_watson_it(state.graph, state.triangulation, n)) {
-        n++;
-        if (n >= size) {
+    if (graph2D_triangulate_bowyer_watson_it(state.graph, state.triangulation)) {
+        if (state.triangulation.process_index >= state.triangulation.process_order.size()) {
             graph2D_triangulate_bowyer_watson_finalize(
                 state.graph,
                 state.triangulation);
@@ -429,3 +446,18 @@ int main(void) {
     CloseWindow();
     return 0;
 }
+//int main(void) {
+//    std::chrono::steady_clock::time_point begin;
+//    std::chrono::steady_clock::time_point end;
+//    SceneState state;
+//    //std::vector<int> nPoints = {100, 10000, 100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000};
+//    std::vector<uint32_t> nPoints = {1000, 10000, 100000, 1000000, 10000000};
+//    for(auto const nPoint: nPoints) {
+//        generate_points(state, nPoint);
+//        begin = std::chrono::steady_clock::now();
+//        graph2D_triangulate_bowyer_watson(state.graph);
+//        end = std::chrono::steady_clock::now();
+//        std::printf("[node=%d] Compute time: %lu ms\n", nPoint, std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count());
+//        malloc_trim(0);
+//    }
+//}
