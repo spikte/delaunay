@@ -5,9 +5,9 @@ Circle triangle_get_circumcircle(const Triangle& triangle) {
     float D;
     Circle circle;
 
-    Vector2 A = {0, 0};
-    Vector2 B = {triangle[1].x - triangle[0].x, triangle[1].y - triangle[0].y};
-    Vector2 C = {triangle[2].x - triangle[0].x, triangle[2].y - triangle[0].y};
+    Vector2D A = {0, 0};
+    Vector2D B = {triangle[1].x - triangle[0].x, triangle[1].y - triangle[0].y};
+    Vector2D C = {triangle[2].x - triangle[0].x, triangle[2].y - triangle[0].y};
 
     D               = 2 * (B.x * C.y - B.y * C.x);
     circle.center.x = 1 / D * (C.y * (B.x * B.x + B.y * B.y) - B.y * (C.x * C.x + C.y * C.y));
@@ -19,6 +19,6 @@ Circle triangle_get_circumcircle(const Triangle& triangle) {
 
     return circle;
 }
-float triangle_sign(Vector2 p1, Vector2 p2, Vector2 p3) {
+float triangle_sign(Vector2D p1, Vector2D p2, Vector2D p3) {
     return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
 }

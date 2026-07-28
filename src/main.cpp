@@ -37,6 +37,10 @@ constexpr int screen_width  = 1920;
 constexpr int screen_height = 1080;
 Camera2D camera             = {0};
 
+static Vector2 v2d_to_v2f(Vector2D vec) {
+    return (Vector2){(float)vec.x, (float)vec.y};
+}
+
 struct SceneState {
     Graph2D graph;
     Triangulation triangulation;
@@ -64,7 +68,7 @@ static void generate_points(SceneState& state, int count) {
     state.graph.positions.resize(count);
 
     static std::mt19937 rng(std::random_device{}());
-    static std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
+    static std::uniform_real_distribution<double> dist01(0.0f, 1.0f);
     for (int i = 0; i < count; i++) {
         state.graph.positions[i].x = dist01(rng) * screen_width;
         state.graph.positions[i].y = dist01(rng) * screen_height;
@@ -116,25 +120,25 @@ static const char* state_name(NodeProcessState type) {
 // A soft glowing marker for the point currently being inserted.
 static void draw_current_point(Vector2 p) {
     float r = 6.0f / camera.zoom;
-    DrawCircleV(p, r, color_current_point);
+    DrawRectangleV({p.x - 3.f, p.y - 3.f}, {6.0f, 6.0f}, color_current_point);
 }
 
 static void draw_filled_triangle(Graph2D& graph, const GraphTriangle& t, Color c) {
     DrawTriangle(
-        graph.positions[t[0]],
-        graph.positions[t[2]],
-        graph.positions[t[1]],
+        v2d_to_v2f(graph.positions[t[0]]),
+        v2d_to_v2f(graph.positions[t[2]]),
+        v2d_to_v2f(graph.positions[t[1]]),
         c);
 }
 
 void draw_state_init(SceneState& state) {
-    draw_current_point(state.triangulation.current_point);
+    draw_current_point(v2d_to_v2f(state.triangulation.current_point));
 }
 void draw_state_walk_to_containing(SceneState& state) {
     auto& walk_state            = std::get<StateWalkToContaining>(state.triangulation.state.data);
     TrigTriangle* trig_triangle = (TrigTriangle*) SlotArrayGet(&state.triangulation.triangles, walk_state.walk_current_triangle_id);
     draw_filled_triangle(state.graph, trig_triangle->triangle, color_walk_current_triangle);
-    draw_current_point(state.triangulation.current_point);
+    draw_current_point(v2d_to_v2f(state.triangulation.current_point));
 }
 void draw_state_find_bad_triangles(SceneState& state) {
     auto& bad_state = std::get<StateFindBadTriangles>(state.triangulation.state.data);
@@ -153,28 +157,28 @@ void draw_state_find_bad_triangles(SceneState& state) {
     }
 
     if (bad_state.bad_current_triangle_id == UINT32_MAX) {
-        draw_current_point(state.triangulation.current_point);
+        draw_current_point(v2d_to_v2f(state.triangulation.current_point));
         return;
     }
     TrigTriangle* trig_triangle = (TrigTriangle*) SlotArrayGet(&state.triangulation.triangles, bad_state.bad_current_triangle_id);
     draw_filled_triangle(state.graph, trig_triangle->triangle, color_bad_id);
     DrawCircleLinesV(
-        bad_state.bad_current_triangle_circle.center,
+        v2d_to_v2f(bad_state.bad_current_triangle_circle.center),
         bad_state.bad_current_triangle_circle.radius,
         color_bad_circle);
-    draw_current_point(state.triangulation.current_point);
+    draw_current_point(v2d_to_v2f(state.triangulation.current_point));
 }
 void draw_boundary_edges(SceneState& state) {
     auto& bad_state = std::get<StateFindBadTriangles>(state.triangulation.state.data);
     for (auto const& boundary_edge : bad_state.boundary_edges) {
         float lineWidth = 5.0f / camera.zoom;
         DrawLineEx(
-            state.graph.positions[boundary_edge.a],
-            state.graph.positions[boundary_edge.b],
+            v2d_to_v2f(state.graph.positions[boundary_edge.a]),
+            v2d_to_v2f(state.graph.positions[boundary_edge.b]),
             lineWidth,
             color_boundary_edge);
     }
-    draw_current_point(state.triangulation.current_point);
+    draw_current_point(v2d_to_v2f(state.triangulation.current_point));
 }
 void draw_state_build_polygon(SceneState& state) {
     draw_boundary_edges(state);
@@ -294,9 +298,9 @@ void draw(SceneState& state, bool it = false, bool init = false) {
                 continue;
             TrigTriangle* trig_triangle = (TrigTriangle*) SlotArrayGet(&state.triangulation.triangles, i);
             DrawTriangleLines(
-                state.graph.positions[trig_triangle->triangle[0]],
-                state.graph.positions[trig_triangle->triangle[1]],
-                state.graph.positions[trig_triangle->triangle[2]],
+                v2d_to_v2f(state.graph.positions[trig_triangle->triangle[0]]),
+                v2d_to_v2f(state.graph.positions[trig_triangle->triangle[1]]),
+                v2d_to_v2f(state.graph.positions[trig_triangle->triangle[2]]),
                 color_outer_triangle);
         }
     }
@@ -305,18 +309,18 @@ void draw(SceneState& state, bool it = false, bool init = false) {
         float lineWidth = 2.0f / camera.zoom;
 
         DrawLineEx(
-            state.graph.positions[edge[0]],
-            state.graph.positions[edge[1]],
+            v2d_to_v2f(state.graph.positions[edge[0]]),
+            v2d_to_v2f(state.graph.positions[edge[1]]),
             lineWidth,
             color_mesh_edge);
     }
     float pointRadius = 2.0f / camera.zoom;
     if (pointRadius >= 1.0f) {
         for (auto const& point : state.graph.positions)
-            DrawCircleV(point, pointRadius, BLACK);
+            DrawRectangleV({(float)point.x - 1.f, (float)point.y - 1.f}, {2.f, 2.f}, BLACK);
     } else {
         for (auto const& point : state.graph.positions)
-            DrawPixelV(point, color_mesh_edge);
+            DrawPixelV(v2d_to_v2f(point), color_mesh_edge);
     }
 }
 
@@ -379,7 +383,7 @@ int main(void) {
 
     while (!WindowShouldClose()) {
         update(state);
-        if(IsKeyPressed(KEY_H))
+        if (IsKeyPressed(KEY_H))
             hud = !hud;
 
         // Only update points if the user isn't typing in the box, to prevent resetting mid-edit
@@ -442,7 +446,7 @@ int main(void) {
         BeginMode2D(camera);
         draw(state, true, init);
         EndMode2D();
-        if(hud)
+        if (hud)
             draw_hud(state, triangulation_time_ms, init, &point_slider, &speed_slider, &points_edit, &speed_edit);
         EndDrawing();
     }

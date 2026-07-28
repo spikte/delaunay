@@ -2,15 +2,13 @@
 
 
 // Predicates
-// Have to admit Claud helped for this part
-// I didn't know about those things before
-static double robust_orient(Vector2 a, Vector2 b, Vector2 p) {
+static double robust_orient(Vector2D a, Vector2D b, Vector2D p) {
     double pa[2] = { (double)a.x, (double)a.y };
     double pb[2] = { (double)b.x, (double)b.y };
     double pp[2] = { (double)p.x, (double)p.y };
     return orient2d(pa, pb, pp);
 }
-static double robust_incircle(Vector2 a, Vector2 b, Vector2 c, Vector2 d) {
+static double robust_incircle(Vector2D a, Vector2D b, Vector2D c, Vector2D d) {
     double pa[2] = { (double)a.x, (double)a.y };
     double pb[2] = { (double)b.x, (double)b.y };
     double pc[2] = { (double)c.x, (double)c.y };
@@ -91,8 +89,8 @@ void graph_triangulate_fan(Graph& graph) {
 }
 /* Graph2D */
 // Graph2D utils
-Vector2 graph2D_get_min_bound(Graph2D& graph) {
-    Vector2 min;
+Vector2D graph2D_get_min_bound(Graph2D& graph) {
+    Vector2D min;
     int i_start;
 
     i_start = 0;
@@ -110,8 +108,8 @@ Vector2 graph2D_get_min_bound(Graph2D& graph) {
 
     return min;
 }
-Vector2 graph2D_get_max_bound(Graph2D& graph) {
-    Vector2 max;
+Vector2D graph2D_get_max_bound(Graph2D& graph) {
+    Vector2D max;
     int i_start;
 
     i_start = 0;
@@ -129,9 +127,9 @@ Vector2 graph2D_get_max_bound(Graph2D& graph) {
     return max;
 }
 // From: https://fr.wikipedia.org/wiki/Algorithme_de_Bowyer-Watson
-Triangle graph2D_get_super_triangle(Graph2D& graph, float epsilon) {
-    Vector2 pos_min;
-    Vector2 pos_max;
+Triangle graph2D_get_super_triangle(Graph2D& graph, double epsilon) {
+    Vector2D pos_min;
+    Vector2D pos_max;
     Triangle super_triangle;
 
     pos_min           = graph2D_get_min_bound(graph);
@@ -147,20 +145,20 @@ Triangle graph2D_get_super_triangle(Graph2D& graph, float epsilon) {
 
     return super_triangle;
 }
-float graph2D_get_average_distance(Graph2D& graph) {
+double graph2D_get_average_distance(Graph2D& graph) {
     if (graph.positions.size() < 2)
         return 0.0f;
-    Vector2 min = graph2D_get_min_bound(graph);
-    Vector2 max = graph2D_get_max_bound(graph);
-    float area =
+    Vector2D min = graph2D_get_min_bound(graph);
+    Vector2D max = graph2D_get_max_bound(graph);
+    double area =
         (max.x - min.x) *
         (max.y - min.y);
-    float density = graph.positions.size() / area;
+    double density = graph.positions.size() / area;
     return sqrtf(1.0f / density);
 }
-std::vector<uint32_t> graph2D_sort_grid_indices(Graph2D& graph, Vector2 cell_dims) {
-    Vector2 min_bound;
-    Vector2 max_bound;
+std::vector<uint32_t> graph2D_sort_grid_indices(Graph2D& graph, Vector2D cell_dims) {
+    Vector2D min_bound;
+    Vector2D max_bound;
     int grid_x;
     int grid_y;
     int cell_count;
@@ -179,7 +177,7 @@ std::vector<uint32_t> graph2D_sort_grid_indices(Graph2D& graph, Vector2 cell_dim
     for (uint32_t i = 0; i < graph.positions.size(); i++) {
         if(!graph.active[i])
             continue;
-        const Vector2& p = graph.positions[i];
+        const Vector2D& p = graph.positions[i];
         int x            = (int) ((p.x - min_bound.x) / cell_dims.x);
         int y            = (int) ((p.y - min_bound.y) / cell_dims.y);
         x                = std::clamp(x, 0, grid_x - 1);
@@ -205,7 +203,7 @@ std::vector<uint32_t> graph2D_sort_grid_indices(Graph2D& graph, Vector2 cell_dim
     return order;
 }
 // Graph2D vertex
-uint32_t graph2D_add_vertex(Graph2D& graph, Vector2 pos) {
+uint32_t graph2D_add_vertex(Graph2D& graph, Vector2D pos) {
     uint32_t node;
 
     node = graph_add_vertex(graph);
@@ -219,20 +217,20 @@ uint32_t graph2D_add_vertex(Graph2D& graph, Vector2 pos) {
 
 // Graph2D triangulation
 // Helpers
-//static float orient(Vector2 a, Vector2 b, Vector2 p) {
+//static double orient(Vector2D a, Vector2D b, Vector2D p) {
 //    return (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
 //}
-static double orient_canonical(Graph2D& graph, uint32_t u, uint32_t v, const Vector2& p) {
+static double orient_canonical(Graph2D& graph, uint32_t u, uint32_t v, const Vector2D& p) {
     bool swapped = u > v;
     if (swapped)
         std::swap(u, v);
     double s = robust_orient(graph.positions[u], graph.positions[v], p);
     return swapped ? -s : s;
 }
-static bool check_sign_equal(float val1, float val2, float val3) {
+static bool check_sign_equal(double val1, double val2, double val3) {
     return (val1 >= 0 && val2 >= 0 && val3 >= 0) || (val1 < 0 && val2 < 0 && val3 < 0);
 }
-static bool check_sign_different(float val1, float val2, float val3) {
+static bool check_sign_different(double val1, double val2, double val3) {
     return (val1 < 0 && val2 >= 0 && val3 >= 0) || (val1 >= 0 && val2 < 0 && val3 < 0);
 }
 GraphTriangle make_oriented_triangle(Graph2D& graph, uint32_t a, uint32_t b, uint32_t c) {
@@ -241,7 +239,7 @@ GraphTriangle make_oriented_triangle(Graph2D& graph, uint32_t a, uint32_t b, uin
         std::swap(b, c);
     return {a, b, c};
 }
-int check_point_position(const std::array<float, 3>& signs) {
+int check_point_position(const std::array<double, 3>& signs) {
     if (signs[0] < 0)
         return 0;
     else if (signs[1] < 0)
@@ -268,7 +266,7 @@ void graph2D_triangulate_walk_state_init(Triangulation& triangulation, StateWalk
     state.walk_current_triangle_id = triangulation.last_inserted;
 }
 uint32_t graph2D_triangulate_walk_state_it(Graph2D& graph, Triangulation& triangulation, StateWalkToContaining& state) {
-    const Vector2& point = triangulation.current_point;
+    const Vector2D& point = triangulation.current_point;
     std::array<double, 3> signs;
     TrigTriangle& graph_triangle = *(TrigTriangle*) SlotArrayGet(&triangulation.triangles, state.walk_current_triangle_id);
     Triangle triangle            = {
@@ -331,7 +329,7 @@ void graph2D_triangulate_find_bad_state_it(Graph2D& graph, Triangulation& triang
 void graph2D_triangulate_bowyer_watson_init(Graph2D& graph, Triangulation& triangulation) {
     exactinit();
     Triangle super_triangle_pts;
-    float avg_dist;
+    double avg_dist;
 
     avg_dist                    = graph2D_get_average_distance(graph);
     triangulation.process_order = graph2D_sort_grid_indices(graph, {avg_dist * 4.0f, avg_dist * 4.0f});

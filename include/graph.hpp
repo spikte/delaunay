@@ -46,23 +46,23 @@ void graph_triangulate_fan(Graph& graph);
 /* Graph2D */
 // TODO: I could make a general graph with vertex data struct using void and data type size
 struct Graph2D : Graph {
-    std::vector<Vector2> positions;
+    std::vector<Vector2D> positions;
     Graph2D(int n) : Graph(n) {
         positions.resize(n);
     };
 };
 // Graph2D utils
-Vector2 graph2D_get_min_bound(Graph2D& graph);
-Vector2 graph2D_get_max_bound(Graph2D& graph);
-Triangle graph2D_get_super_triangle(Graph2D& graph, float epsilon = 10.f);
-float graph2D_get_average_distance(Graph2D& graph);
+Vector2D graph2D_get_min_bound(Graph2D& graph);
+Vector2D graph2D_get_max_bound(Graph2D& graph);
+Triangle graph2D_get_super_triangle(Graph2D& graph, double epsilon = 10.f);
+double graph2D_get_average_distance(Graph2D& graph);
 struct GridEntry {
     uint32_t point;
     uint32_t next;
 };
-std::vector<uint32_t> graph2D_sort_grid_indices(Graph2D& graph, Vector2 cell_dims);
+std::vector<uint32_t> graph2D_sort_grid_indices(Graph2D& graph, Vector2D cell_dims);
 // Graph2D vertex
-uint32_t graph2D_add_vertex(Graph2D& graph, Vector2 pos);
+uint32_t graph2D_add_vertex(Graph2D& graph, Vector2D pos);
 // Graph2D triangulation
 struct GraphTriangulation {
     std::vector<GraphTriangle> triangles;
@@ -114,7 +114,7 @@ struct Triangulation {
     std::vector<uint32_t> process_order;
     size_t process_index = 0;
     uint32_t current_node = UINT32_MAX;
-    Vector2 current_point{};
+    Vector2D current_point{};
     SlotArray triangles;
     GraphTriangle super_triangle{};
     uint32_t last_inserted  = UINT32_MAX;
