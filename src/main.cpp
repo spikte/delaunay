@@ -368,6 +368,7 @@ int main(void) {
     float step_accumulator = 0.0f;
 
     // UI states for inputs
+    bool hud         = true;
     bool points_edit = false;
     bool speed_edit  = false;
 
@@ -378,6 +379,8 @@ int main(void) {
 
     while (!WindowShouldClose()) {
         update(state);
+        if(IsKeyPressed(KEY_H))
+            hud = !hud;
 
         // Only update points if the user isn't typing in the box, to prevent resetting mid-edit
         int requested_points = (int) point_slider;
@@ -439,7 +442,8 @@ int main(void) {
         BeginMode2D(camera);
         draw(state, true, init);
         EndMode2D();
-        draw_hud(state, triangulation_time_ms, init, &point_slider, &speed_slider, &points_edit, &speed_edit);
+        if(hud)
+            draw_hud(state, triangulation_time_ms, init, &point_slider, &speed_slider, &points_edit, &speed_edit);
         EndDrawing();
     }
 
