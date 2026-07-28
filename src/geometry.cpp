@@ -5,7 +5,6 @@ Circle triangle_get_circumcircle(const Triangle& triangle) {
     float D;
     Circle circle;
 
-    Vector2D A = {0, 0};
     Vector2D B = {triangle[1].x - triangle[0].x, triangle[1].y - triangle[0].y};
     Vector2D C = {triangle[2].x - triangle[0].x, triangle[2].y - triangle[0].y};
 

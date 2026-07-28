@@ -1,3 +1,4 @@
+#include "../include/bowyer_watson.hpp"
 #include "../include/graph.hpp"
 #include <cstdio>
 #include <random>
@@ -14,7 +15,7 @@ const Color color_background            = GetColor(0xF7F4EEFF); // warm paper
 const Color color_grid_dot              = GetColor(0xE4DFD3FF); // faint background dots
 const Color color_mesh_edge             = GetColor(0x2B2E3AFF); // final mesh lines, near-black navy
 const Color color_outer_triangle        = Fade(GetColor(0x2B2E3AFF), 0.55f);
-const Color color_current_point         = GetColor(0xE0574AFF);
+const Color color_current_point         = RED;
 const Color color_walk_current_triangle = Fade(GetColor(0x3EA8DEFF), 0.55f); // sky blue wash
 const Color color_bad_id                = Fade(GetColor(0x3EA8DEFF), 0.75f);
 const Color color_bad_circle            = GetColor(0x2B2E3AFF);
@@ -38,11 +39,11 @@ constexpr int screen_height = 1080;
 Camera2D camera             = {0};
 
 static Vector2 v2d_to_v2f(Vector2D vec) {
-    return (Vector2){(float)vec.x, (float)vec.y};
+    return (Vector2) {(float) vec.x, (float) vec.y};
 }
 
 struct SceneState {
-    Graph2D graph;
+    GraphList2D graph;
     Triangulation triangulation;
 
     SceneState() : graph(0) {};
@@ -118,27 +119,20 @@ static const char* state_name(NodeProcessState type) {
 }
 
 // A soft glowing marker for the point currently being inserted.
-static void draw_current_point(Vector2 p) {
-    float r = 6.0f / camera.zoom;
-    DrawRectangleV({p.x - 3.f, p.y - 3.f}, {6.0f, 6.0f}, color_current_point);
-}
 
-static void draw_filled_triangle(Graph2D& graph, const GraphTriangle& t, Color c) {
+static void draw_filled_triangle(GraphList2D& graph, const GraphListTriangle& t, Color c) {
     DrawTriangle(
         v2d_to_v2f(graph.positions[t[0]]),
         v2d_to_v2f(graph.positions[t[2]]),
         v2d_to_v2f(graph.positions[t[1]]),
         c);
 }
-
 void draw_state_init(SceneState& state) {
-    draw_current_point(v2d_to_v2f(state.triangulation.current_point));
 }
 void draw_state_walk_to_containing(SceneState& state) {
     auto& walk_state            = std::get<StateWalkToContaining>(state.triangulation.state.data);
     TrigTriangle* trig_triangle = (TrigTriangle*) SlotArrayGet(&state.triangulation.triangles, walk_state.walk_current_triangle_id);
     draw_filled_triangle(state.graph, trig_triangle->triangle, color_walk_current_triangle);
-    draw_current_point(v2d_to_v2f(state.triangulation.current_point));
 }
 void draw_state_find_bad_triangles(SceneState& state) {
     auto& bad_state = std::get<StateFindBadTriangles>(state.triangulation.state.data);
@@ -157,7 +151,6 @@ void draw_state_find_bad_triangles(SceneState& state) {
     }
 
     if (bad_state.bad_current_triangle_id == UINT32_MAX) {
-        draw_current_point(v2d_to_v2f(state.triangulation.current_point));
         return;
     }
     TrigTriangle* trig_triangle = (TrigTriangle*) SlotArrayGet(&state.triangulation.triangles, bad_state.bad_current_triangle_id);
@@ -166,7 +159,6 @@ void draw_state_find_bad_triangles(SceneState& state) {
         v2d_to_v2f(bad_state.bad_current_triangle_circle.center),
         bad_state.bad_current_triangle_circle.radius,
         color_bad_circle);
-    draw_current_point(v2d_to_v2f(state.triangulation.current_point));
 }
 void draw_boundary_edges(SceneState& state) {
     auto& bad_state = std::get<StateFindBadTriangles>(state.triangulation.state.data);
@@ -178,7 +170,6 @@ void draw_boundary_edges(SceneState& state) {
             lineWidth,
             color_boundary_edge);
     }
-    draw_current_point(v2d_to_v2f(state.triangulation.current_point));
 }
 void draw_state_build_polygon(SceneState& state) {
     draw_boundary_edges(state);
@@ -316,11 +307,25 @@ void draw(SceneState& state, bool it = false, bool init = false) {
     }
     float pointRadius = 2.0f / camera.zoom;
     if (pointRadius >= 1.0f) {
-        for (auto const& point : state.graph.positions)
-            DrawRectangleV({(float)point.x - 1.f, (float)point.y - 1.f}, {2.f, 2.f}, BLACK);
+        for (uint32_t node = 0; node < state.graph.positions.size(); node++) {
+            if (!state.graph.active[node])
+                continue;
+            const Vector2 point = v2d_to_v2f(state.graph.positions[node]);
+            DrawRectangleV({point.x - pointRadius / 2.f, point.y - pointRadius / 2.f}, {pointRadius, pointRadius}, BLACK);
+        }
     } else {
-        for (auto const& point : state.graph.positions)
-            DrawPixelV(v2d_to_v2f(point), color_mesh_edge);
+        for (uint32_t node = 0; node < state.graph.positions.size(); node++) {
+            const Vector2 point = v2d_to_v2f(state.graph.positions[node]);
+            DrawPixelV(point, BLACK);
+        }
+    }
+    if (state.triangulation.current_node != UINT32_MAX) {
+        Vector2 point = v2d_to_v2f(state.triangulation.current_point);
+        float r       = Clamp(8.0f / camera.zoom, 2.0f, 8.0f);
+
+        DrawCircleV(point, r * 1.8f, Fade(RED, 0.20f));
+        DrawCircleLinesV(point, r * 1.8f, RED);
+        DrawCircleV(point, r, RED);
     }
 }
 
@@ -334,8 +339,6 @@ static void step_bowyer_watson(SceneState& state, bool* init, bool* finished, si
     }
     if (*finished)
         return;
-    size_t size;
-    size = state.graph.adj_list.size();
     // Process current vertex
     if (graph2D_triangulate_bowyer_watson_it(state.graph, state.triangulation)) {
         if (state.triangulation.process_index >= state.triangulation.process_order.size()) {
@@ -450,22 +453,6 @@ int main(void) {
             draw_hud(state, triangulation_time_ms, init, &point_slider, &speed_slider, &points_edit, &speed_edit);
         EndDrawing();
     }
-
     CloseWindow();
     return 0;
 }
-//int main(void) {
-//    std::chrono::steady_clock::time_point begin;
-//    std::chrono::steady_clock::time_point end;
-//    SceneState state;
-//    //std::vector<int> nPoints = {100, 10000, 100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000};
-//    std::vector<uint32_t> nPoints = {1000, 10000, 100000, 1000000, 10000000};
-//    for(auto const nPoint: nPoints) {
-//        generate_points(state, nPoint);
-//        begin = std::chrono::steady_clock::now();
-//        graph2D_triangulate_bowyer_watson(state.graph);
-//        end = std::chrono::steady_clock::now();
-//        std::printf("[node=%d] Compute time: %lu ms\n", nPoint, std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count());
-//        malloc_trim(0);
-//    }
-//}

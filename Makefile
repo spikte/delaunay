@@ -1,5 +1,5 @@
 TARGET=delaunay
-SRCS=lib/predicates.c src/slot_array.cpp src/geometry.cpp src/graph.cpp src/main.cpp
+SRCS=lib/predicates.c src/slot_array.cpp src/geometry.cpp src/graph.cpp src/bowyer_watson.cpp src/main.cpp
 OBJS_TMP=$(SRCS:.cpp=.o)
 OBJS=$(addprefix obj/, $(notdir $(OBJS_TMP:.c=.o)))
 CXXFLAGS=-O3 -Wall -I./include -I./lib
