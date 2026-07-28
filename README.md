@@ -18,3 +18,12 @@ Also implement a visualization of the algorithm using raylib.
 ## Visualization
 
 ![delaunay_vis](images/delaunay_viz.gif "Delaunay visualization")
+
+## Usage
+
+```
+git clone https://github.com/spikte/delaunay
+cd delaunay/
+make
+./bin/delaunay
+```
